@@ -34,13 +34,14 @@ venv.bak/
 
 # Data files
 data/raw/*.csv
-data/processed/*.csv
-*.csv
+# data/processed/*.csv  <-- Commented out to allow deployment
+# *.csv
 !results/tables/*.csv
 
 # Model files
-models/*.pkl
-*.pkl
+# models/*.pkl <-- Commented out to allow deployment
+# *.pkl
+# models/randomforest_model.pkl  <-- Commented out to allow LFS deployment
 !models/.gitkeep
 
 # Checkpoints and temporary files
