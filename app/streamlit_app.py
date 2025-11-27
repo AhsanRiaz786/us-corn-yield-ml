@@ -128,7 +128,7 @@ def main():
             st.metric("MAE", "11.22 BU/ACRE")
         
         st.markdown("""
-        The XGBoost model achieves strong performance with an R-squared of 0.863 and mean absolute error of 11.22 BU/ACRE.
+        The XGBoost model achieves strong performance with an R² of 0.863 and mean absolute error of 11.22 BU/ACRE.
         This represents a significant improvement over baseline methods.
         """)
         
