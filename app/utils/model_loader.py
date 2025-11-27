@@ -38,6 +38,19 @@ def load_model(model_name='xgboost'):
 
 
 @st.cache_resource
+def load_state_encoder():
+    """Load the state encoder mapping."""
+    encoder_path = MODELS_DIR / 'state_encoder.pkl'
+    if not encoder_path.exists():
+        return None
+    try:
+        return joblib.load(encoder_path)
+    except Exception as e:
+        st.error(f"Error loading state encoder: {e}")
+        return None
+
+
+@st.cache_resource
 def load_scaler():
     """Load the feature scaler with caching."""
     if not SCALER_FILE.exists():

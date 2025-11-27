@@ -8,7 +8,7 @@ sys.path.insert(0, str(project_root))
 
 import pandas as pd
 import numpy as np
-from app.utils.model_loader import load_model, load_scaler, load_feature_columns, get_model_metadata
+from app.utils.model_loader import load_model, load_scaler, load_feature_columns, get_model_metadata, load_state_encoder
 from app.utils.data_loader import get_historical_yields, get_county_soil_data, get_latest_county_data
 from app.config import DEFAULT_VALUES, FEATURE_CATEGORIES
 from app.utils.data_loader import load_data
@@ -100,8 +100,12 @@ def prepare_features(
     weather_cols = [
         col for category in FEATURE_CATEGORIES.values() 
         for col in category 
-        if any(x in col.lower() for x in ['gdd', 'temp', 'precip', 'heat', 'rh', 'stress', 'anomaly'])
+        if any(x in col.lower() for x in ['gdd', 'temp', 'precip', 'heat', 'rh', 'stress', 'anomaly', 'weeks', 'humidity'])
     ]
+    
+    # Calculate state averages for fallback
+    state_data = df[df['State'] == state]
+    state_averages = state_data[weather_cols].mean().to_dict()
     
     for col in weather_cols:
         if col not in feature_columns:
@@ -109,15 +113,10 @@ def prepare_features(
         
         if weather_overrides and col in weather_overrides:
             features[col] = weather_overrides[col]
-        elif latest_data is not None and col in latest_data and pd.notna(latest_data[col]):
-            features[col] = float(latest_data[col])
-        elif col in weather_defaults and pd.notna(weather_defaults.get(col)):
-            features[col] = float(weather_defaults[col])
         else:
-            # Fallback to state average
-            state_data = df[df['State'] == state]
-            if col in state_data.columns:
-                features[col] = float(state_data[col].mean())
+            # Use state average as default instead of latest year (which might be outlier)
+            if col in state_averages and pd.notna(state_averages[col]):
+                features[col] = float(state_averages[col])
             else:
                 features[col] = 0.0
     
@@ -130,8 +129,14 @@ def prepare_features(
         features['Harvest_Efficiency'] = DEFAULT_VALUES['Harvest_Efficiency']
     
     # State encoding
-    state_encoder = {state: idx for idx, state in enumerate(df['State'].unique())}
-    features['State_Encoded'] = state_encoder.get(state, 0)
+    state_encoder = load_state_encoder()
+    if state_encoder:
+        features['State_Encoded'] = state_encoder.get(state, 0)
+    else:
+        # Fallback if encoder not found (should not happen in prod)
+        # This is risky but better than crashing
+        state_encoder_fallback = {state: idx for idx, state in enumerate(sorted(df['State'].unique()))}
+        features['State_Encoded'] = state_encoder_fallback.get(state, 0)
     
     # Create feature vector in correct order
     feature_vector = pd.DataFrame([features])
@@ -184,11 +189,16 @@ def predict_yield(
         df=df
     )
     
-    # Scale features
-    features_scaled = scaler.transform(features)
+    # Scale features ONLY if model requires it (Ridge)
+    # XGBoost, Random Forest, and Gradient Boosting were trained on unscaled data
+    if model_name == 'ridge':
+        features_scaled = scaler.transform(features)
+        features_final = pd.DataFrame(features_scaled, columns=features.columns)
+    else:
+        features_final = features
     
     # Make prediction
-    prediction = model.predict(features_scaled)[0]
+    prediction = model.predict(features_final)[0]
     
     # Get confidence interval (using MAE as proxy)
     mae = model_metadata.get('mae', 11.22)
