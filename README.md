@@ -77,7 +77,7 @@ us-corn-yield/
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/us-corn-yield.git
+git clone https://github.com/AhsanRiaz786/us-corn-yield-ml
 cd us-corn-yield
 
 # Create virtual environment
@@ -254,7 +254,7 @@ If you use this code or methodology in your research, please cite:
   title = {US Corn Yield Prediction System},
   year = {2025},
   publisher = {GitHub},
-  url = {https://github.com/yourusername/us-corn-yield}
+  url = {https://github.com/AhsanRiaz786/us-corn-yield-ml}
 }
 ```
 
