@@ -1,0 +1,101 @@
+/* Main App Styling */
+.stApp {
+    background-color: #FFFFFF;
+}
+
+/* Typography */
+h1, h2, h3 {
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-weight: 600;
+    color: #262730;
+}
+
+.main-header {
+    font-size: 3rem;
+    font-weight: 700;
+    color: #009688;
+    text-align: center;
+    margin-bottom: 0.5rem;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+
+.subheader {
+    font-size: 1.2rem;
+    color: #555;
+    text-align: center;
+    margin-bottom: 2.5rem;
+    font-weight: 300;
+}
+
+/* Cards */
+.metric-card {
+    background-color: #FFFFFF;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    border: 1px solid #E0E0E0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
+}
+
+.metric-label {
+    font-size: 0.9rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #009688;
+}
+
+/* Buttons */
+.stButton>button {
+    width: 100%;
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s;
+}
+
+.stButton>button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background-color: #F8F9FA;
+    border-right: 1px solid #E0E0E0;
+}
+
+/* Custom Containers */
+.hero-container {
+    background: linear-gradient(135deg, #009688 0%, #00796B 100%);
+    padding: 3rem 2rem;
+    border-radius: 15px;
+    color: white;
+    margin-bottom: 2rem;
+    text-align: center;
+    box-shadow: 0 10px 20px rgba(0, 150, 136, 0.2);
+}
+
+.hero-title {
+    font-size: 3.5rem;
+    font-weight: 800;
+    margin-bottom: 1rem;
+    color: white;
+}
+
+.hero-subtitle {
+    font-size: 1.5rem;
+    font-weight: 300;
+    opacity: 0.9;
+}

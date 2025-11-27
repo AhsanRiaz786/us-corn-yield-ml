@@ -17,65 +17,77 @@ from app.config import PAGE_CONFIG
 st.set_page_config(**PAGE_CONFIG)
 
 # Custom CSS
-st.markdown("""
-    <style>
-    .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .subheader {
-        font-size: 1.2rem;
-        color: #666;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .metric-card {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #1f77b4;
-        margin: 0.5rem 0;
-    }
-    .stButton>button {
-        width: 100%;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+def load_css():
+    with open("app/assets/style.css") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+load_css()
 
 
 def main():
     """Main application function."""
     
-    st.markdown('<div class="main-header">US Corn Yield Prediction System</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subheader">Machine Learning-Based Yield Forecasting</div>', unsafe_allow_html=True)
+    # Hero Section
+    st.markdown("""
+        <div class="hero-container">
+            <div class="hero-title">US Corn Yield Prediction</div>
+            <div class="hero-subtitle">Advanced Machine Learning for Agricultural Intelligence</div>
+        </div>
+    """, unsafe_allow_html=True)
     
     st.markdown("---")
     
     # Load data summary
     try:
         from app.utils.data_loader import load_data, get_dataset_summary
+        from app.utils.visualizations import plot_choropleth_map
         
         with st.spinner("Loading data..."):
             df = load_data()
             summary = get_dataset_summary(df)
         
+        # Map Visualization (Hero Feature)
+        st.subheader("National Yield Overview")
+        latest_year = summary['year_range'][1]
+        map_fig = plot_choropleth_map(df, latest_year)
+        st.plotly_chart(map_fig, use_container_width=True)
+        
+        st.markdown("---")
+        
         # Key metrics
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("Total Records", f"{summary['total_records']:,}")
+            st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">Total Records</div>
+                    <div class="metric-value">{summary['total_records']:,}</div>
+                </div>
+            """, unsafe_allow_html=True)
         
         with col2:
-            st.metric("Counties", f"{summary['num_counties']:,}")
+            st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">Counties</div>
+                    <div class="metric-value">{summary['num_counties']:,}</div>
+                </div>
+            """, unsafe_allow_html=True)
         
         with col3:
-            st.metric("States", summary['num_states'])
+            st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">States</div>
+                    <div class="metric-value">{summary['num_states']}</div>
+                </div>
+            """, unsafe_allow_html=True)
         
         with col4:
-            st.metric("Year Range", f"{summary['year_range'][0]}-{summary['year_range'][1]}")
+            st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">Year Range</div>
+                    <div class="metric-value">{summary['year_range'][0]}-{summary['year_range'][1]}</div>
+                </div>
+            """, unsafe_allow_html=True)
         
         st.markdown("---")
         
