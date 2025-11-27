@@ -16,6 +16,61 @@ import seaborn as sns
 from app.config import COLORS
 
 
+def plot_choropleth_map(df, year):
+    """
+    Plot county-level yield map for a specific year.
+    
+    Args:
+        df: DataFrame containing yield data
+        year: Year to visualize
+    
+    Returns:
+        plotly.graph_objects.Figure
+    """
+    # Filter for year
+    map_df = df[df['Year'] == year].copy()
+    
+    # Create FIPS code if not exists (State ANSI + County ANSI)
+    # Ensure ANSI codes are string and padded
+    if 'State ANSI' in map_df.columns and 'County ANSI' in map_df.columns:
+        map_df['State ANSI'] = map_df['State ANSI'].astype(str).str.zfill(2)
+        map_df['County ANSI'] = map_df['County ANSI'].astype(str).str.zfill(3)
+        map_df['FIPS'] = map_df['State ANSI'] + map_df['County ANSI']
+    
+    # Use Plotly Express Choropleth
+    # Note: This requires a GeoJSON file for US counties. 
+    # Plotly has a built-in one but it might be slow or require internet.
+    # We will use 'usa-states' scope for performance if county geojson is tricky,
+    # but let's try county level first with built-in geojson.
+    
+    from urllib.request import urlopen
+    import json
+    
+    # For robust offline/fast usage, we might want to use a scattergeo if geojson fails,
+    # but let's try the standard plotly way first.
+    
+    fig = px.choropleth(
+        map_df,
+        locations='FIPS',
+        geojson="https://raw.githubusercontent.com/plotly/datasets/master/geojson-counties-fips.json",
+        color='Yield_BU_ACRE',
+        scope="usa",
+        hover_name='County',
+        hover_data=['State', 'Yield_BU_ACRE'],
+        color_continuous_scale="Greens",
+        title=f'Corn Yield by County ({year})'
+    )
+    
+    fig.update_layout(
+        margin={"r":0,"t":30,"l":0,"b":0},
+        plot_bgcolor='white',
+        geo=dict(
+            lakecolor='rgb(255, 255, 255)',
+        )
+    )
+    
+    return fig
+
 def plot_yield_trend(df, state=None, county=None, title=None):
     """
     Plot yield trend over time.
