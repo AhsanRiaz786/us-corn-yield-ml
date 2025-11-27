@@ -10,7 +10,7 @@ from .data_loader import (
 
 from .model_loader import (
     load_model, load_scaler, load_feature_columns,
-    get_model_metadata, get_all_model_names
+    get_model_metadata, get_available_models
 )
 
 from .predictions import (
@@ -23,7 +23,7 @@ __all__ = [
     'get_latest_county_data', 'filter_data', 'get_state_statistics',
     'get_dataset_summary',
     'load_model', 'load_scaler', 'load_feature_columns',
-    'get_model_metadata', 'get_all_model_names',
+    'get_model_metadata', 'get_available_models',
     'prepare_features', 'predict_yield'
 ]
 
