@@ -481,6 +481,12 @@ with open(cols_path, 'wb') as f:
     pickle.dump(list(X_train.columns), f)
 print(f"  ✓ Saved: {cols_path}")
 
+# Save state encoder
+state_encoder_path = MODELS_DIR / 'state_encoder.pkl'
+with open(state_encoder_path, 'wb') as f:
+    pickle.dump(state_encoder, f)
+print(f"  ✓ Saved: {state_encoder_path}")
+
 # ============================================================================
 # FINAL SUMMARY
 # ============================================================================
