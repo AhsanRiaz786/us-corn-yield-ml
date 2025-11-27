@@ -14,6 +14,7 @@ from app.utils import (
     get_year_range, get_historical_yields, get_county_soil_data,
     predict_yield
 )
+from app.utils.model_loader import get_available_models
 from app.utils.visualizations import plot_historical_vs_predicted
 from app.config import MODEL_METADATA
 
@@ -57,7 +58,12 @@ selected_year = st.sidebar.number_input(
 
 # Model selection
 st.sidebar.subheader("Model Selection")
-model_names = list(MODEL_METADATA.keys())
+st.sidebar.subheader("Model Selection")
+model_names = get_available_models()
+if not model_names:
+    st.error("No models available. Please check deployment.")
+    st.stop()
+    
 model_display_names = [MODEL_METADATA[m]['name'] for m in model_names]
 selected_model_idx = st.sidebar.selectbox(
     "Model",

@@ -31,10 +31,15 @@ def load_model(model_name='xgboost'):
     model_path = MODEL_FILES[model_name]
     
     if not model_path.exists():
-        raise FileNotFoundError(f"Model file not found: {model_path}")
+        # Return None instead of crashing, so UI can handle it
+        return None
     
-    model = joblib.load(model_path)
-    return model
+    try:
+        model = joblib.load(model_path)
+        return model
+    except Exception as e:
+        st.error(f"Error loading model {model_name}: {e}")
+        return None
 
 
 @st.cache_resource
@@ -77,7 +82,11 @@ def get_model_metadata(model_name):
     return MODEL_METADATA.get(model_name, {})
 
 
-def get_all_model_names():
-    """Get list of all available model names."""
-    return list(MODEL_METADATA.keys())
+def get_available_models():
+    """Get list of available model names (files exist)."""
+    available = []
+    for name, path in MODEL_FILES.items():
+        if path.exists():
+            available.append(name)
+    return available
 

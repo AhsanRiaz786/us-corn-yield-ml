@@ -11,6 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from app.config import MODEL_METADATA, FEATURE_CATEGORIES
+from app.utils.model_loader import get_available_models
 from pathlib import Path
 import json
 
@@ -22,8 +23,12 @@ st.title("Model Performance & Insights")
 st.header("Model Comparison")
 
 comparison_data = []
+comparison_data = []
+available_models = get_available_models()
+
 for model_name, metadata in MODEL_METADATA.items():
-    comparison_data.append({
+    if model_name in available_models:
+        comparison_data.append({
         'Model': metadata['name'],
         'R² Score': metadata['r2'],
         'MAE (BU/ACRE)': metadata['mae'],
@@ -170,7 +175,7 @@ st.header("Model Details")
 
 selected_model_for_details = st.selectbox(
     "Select Model for Details",
-    list(MODEL_METADATA.keys()),
+    available_models,
     format_func=lambda x: MODEL_METADATA[x]['name']
 )
 
