@@ -14,7 +14,7 @@ from app.utils import (
 )
 from app.utils.visualizations import (
     plot_yield_trend, plot_yield_by_state, plot_yield_distribution,
-    plot_scatter_with_trend
+    plot_scatter_with_trend, plot_choropleth_map
 )
 
 
@@ -86,6 +86,11 @@ tab1, tab2, tab3, tab4 = st.tabs([
 
 with tab1:
     st.subheader("Geographic Analysis")
+    
+    # Interactive Map
+    st.write(f"**County-Level Yield Map ({year_range[1]})**")
+    map_fig = plot_choropleth_map(filtered_df, year_range[1])
+    st.plotly_chart(map_fig, use_container_width=True)
     
     # Top states
     st.write("**Top 15 States by Average Yield**")
