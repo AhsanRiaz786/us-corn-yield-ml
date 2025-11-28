@@ -89,3 +89,11 @@ coverage.xml
 docs/_build/
 site/
 
+# CSV Files
+master_corn_county_data.csv
+modeling_dataset_complete.csv
+weather_features_county_year.csv
+
+# Random Forest Model
+randomforest_model.pkl
+
