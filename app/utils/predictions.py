@@ -89,36 +89,73 @@ def prepare_features(
         else:
             features[feat] = DEFAULT_VALUES.get(feat, 0.0)
     
-    # Get weather defaults from latest data or state average
-    if latest_data is not None:
-        weather_defaults = latest_data.to_dict()
-    else:
-        state_data = df[df['State'] == state]
-        weather_defaults = state_data.mean().to_dict()
+    # Get weather defaults: Use weighted recent average (last 3 years, weighted by recency)
+    # This gives more realistic defaults than state averages while smoothing out year-to-year variability
+    county_data = df[(df['State'] == state) & (df['County'] == county)].copy()
     
-    # Weather features (use overrides if provided, else defaults)
+    # Weather feature columns
     weather_cols = [
         col for category in FEATURE_CATEGORIES.values() 
         for col in category 
         if any(x in col.lower() for x in ['gdd', 'temp', 'precip', 'heat', 'rh', 'stress', 'anomaly', 'weeks', 'humidity'])
     ]
+    weather_cols = [col for col in weather_cols if col in feature_columns]
     
-    # Calculate state averages for fallback
+    # Calculate weighted recent average (prefer latest year, but use 3-year average if available)
+    weather_defaults = {}
+    if len(county_data) > 0:
+        county_data_sorted = county_data.sort_values('Year', ascending=False)
+        recent_data = county_data_sorted.head(3)  # Last 3 years
+        
+        if len(recent_data) > 0:
+            # Weighted average: most recent year gets 50%, previous year 30%, year before 20%
+            weights = [0.5, 0.3, 0.2][:len(recent_data)]
+            weights = np.array(weights)
+            weights = weights / weights.sum()  # Normalize
+            
+            for col in weather_cols:
+                if col in recent_data.columns:
+                    values = recent_data[col].values
+                    valid_mask = pd.notna(values)
+                    if valid_mask.any():
+                        # Only use valid values and their corresponding weights
+                        valid_values = values[valid_mask]
+                        valid_weights = weights[valid_mask]
+                        # Renormalize weights for valid values only
+                        valid_weights = valid_weights / valid_weights.sum()
+                        weighted_avg = np.average(valid_values, weights=valid_weights)
+                        weather_defaults[col] = float(weighted_avg)
+                    else:
+                        weather_defaults[col] = None
+                else:
+                    weather_defaults[col] = None
+    else:
+        # No county data - use state average as fallback
+        state_data = df[df['State'] == state]
+        state_averages = state_data[weather_cols].mean().to_dict()
+        weather_defaults = state_averages
+    
+    # Calculate state averages for final fallback
     state_data = df[df['State'] == state]
     state_averages = state_data[weather_cols].mean().to_dict()
     
+    # Set weather features (user overrides > weighted recent average > state average > 0.0)
     for col in weather_cols:
         if col not in feature_columns:
             continue
         
         if weather_overrides and col in weather_overrides:
+            # User override takes priority
             features[col] = weather_overrides[col]
+        elif col in weather_defaults and weather_defaults[col] is not None and pd.notna(weather_defaults[col]):
+            # Use weighted recent average
+            features[col] = float(weather_defaults[col])
+        elif col in state_averages and pd.notna(state_averages[col]):
+            # Fallback to state average
+            features[col] = float(state_averages[col])
         else:
-            # Use state average as default instead of latest year (which might be outlier)
-            if col in state_averages and pd.notna(state_averages[col]):
-                features[col] = float(state_averages[col])
-            else:
-                features[col] = 0.0
+            # Last resort: use 0.0 (but log warning)
+            features[col] = 0.0
     
     # Area features
     if latest_data is not None:

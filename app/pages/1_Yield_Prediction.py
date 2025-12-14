@@ -9,11 +9,12 @@ sys.path.insert(0, str(project_root))
 import streamlit as st
 import pandas as pd
 import numpy as np
-from app.utils import (
+from app.utils.data_loader import (
     load_data, get_unique_states, get_counties_by_state,
     get_year_range, get_historical_yields, get_county_soil_data,
-    predict_yield
+    get_latest_county_data
 )
+from app.utils.predictions import predict_yield
 from app.utils.model_loader import get_available_models
 from app.utils.visualizations import plot_historical_vs_predicted
 from app.config import MODEL_METADATA
@@ -104,9 +105,83 @@ with st.sidebar.expander("Advanced Options"):
     weather_overrides = {}
     if use_custom_weather:
         st.write("**Weather Parameters**")
-        weather_overrides['gdd_total'] = st.number_input("Total GDD", value=2800.0, step=50.0)
-        weather_overrides['precip_total'] = st.number_input("Total Precipitation (mm)", value=500.0, step=10.0)
-        weather_overrides['weeks_heat_stress'] = st.number_input("Heat Stress Weeks", value=2.0, step=0.5)
+        st.caption("Leave defaults to use weighted recent average (last 3 years)")
+        
+        # Get latest county data for default values
+        if selected_state and selected_county:
+            try:
+                latest_data = get_latest_county_data(df, selected_state, selected_county)
+                # Calculate recent average for better defaults
+                county_data = df[(df['State'] == selected_state) & (df['County'] == selected_county)].sort_values('Year', ascending=False)
+                recent_3yr = county_data.head(3)
+            except:
+                latest_data = None
+                recent_3yr = pd.DataFrame()
+        else:
+            latest_data = None
+            recent_3yr = pd.DataFrame()
+        
+        # Key weather parameters with smart defaults
+        tab_temp, tab_precip, tab_stress = st.tabs(["Temperature", "Precipitation", "Stress"])
+        
+        with tab_temp:
+            if len(recent_3yr) > 0 and 'gdd_total' in recent_3yr.columns:
+                gdd_default = float(recent_3yr['gdd_total'].mean())
+            elif latest_data is not None and 'gdd_total' in latest_data.index:
+                gdd_default = float(latest_data['gdd_total'])
+            else:
+                gdd_default = 2800.0
+            weather_overrides['gdd_total'] = st.number_input("Total GDD", value=gdd_default, step=50.0)
+            
+            if len(recent_3yr) > 0 and 'temp_mean_season' in recent_3yr.columns:
+                temp_default = float(recent_3yr['temp_mean_season'].mean())
+            elif latest_data is not None and 'temp_mean_season' in latest_data.index:
+                temp_default = float(latest_data['temp_mean_season'])
+            else:
+                temp_default = 20.0
+            weather_overrides['temp_mean_season'] = st.number_input("Mean Season Temp (°C)", value=temp_default, step=0.5)
+        
+        with tab_precip:
+            if len(recent_3yr) > 0 and 'precip_total' in recent_3yr.columns:
+                precip_default = float(recent_3yr['precip_total'].mean())
+            elif latest_data is not None and 'precip_total' in latest_data.index:
+                precip_default = float(latest_data['precip_total'])
+            else:
+                precip_default = 500.0
+            weather_overrides['precip_total'] = st.number_input("Total Precipitation (mm)", value=precip_default, step=10.0)
+            
+            if len(recent_3yr) > 0 and 'precip_reproductive' in recent_3yr.columns:
+                precip_rep_default = float(recent_3yr['precip_reproductive'].mean())
+            elif latest_data is not None and 'precip_reproductive' in latest_data.index:
+                precip_rep_default = float(latest_data['precip_reproductive'])
+            else:
+                precip_rep_default = 150.0
+            weather_overrides['precip_reproductive'] = st.number_input("Reproductive Stage Precip (mm)", value=precip_rep_default, step=5.0)
+        
+        with tab_stress:
+            if len(recent_3yr) > 0 and 'weeks_heat_stress' in recent_3yr.columns:
+                heat_default = float(recent_3yr['weeks_heat_stress'].mean())
+            elif latest_data is not None and 'weeks_heat_stress' in latest_data.index:
+                heat_default = float(latest_data['weeks_heat_stress'])
+            else:
+                heat_default = 2.0
+            weather_overrides['weeks_heat_stress'] = st.number_input("Heat Stress Weeks", value=heat_default, step=0.5)
+            
+            if len(recent_3yr) > 0 and 'weeks_extreme_heat' in recent_3yr.columns:
+                extreme_heat_default = float(recent_3yr['weeks_extreme_heat'].mean())
+            elif latest_data is not None and 'weeks_extreme_heat' in latest_data.index:
+                extreme_heat_default = float(latest_data['weeks_extreme_heat'])
+            else:
+                extreme_heat_default = 0.5
+            weather_overrides['weeks_extreme_heat'] = st.number_input("Extreme Heat Weeks", value=extreme_heat_default, step=0.5)
+            
+            if len(recent_3yr) > 0 and 'weeks_dry' in recent_3yr.columns:
+                dry_default = float(recent_3yr['weeks_dry'].mean())
+            elif latest_data is not None and 'weeks_dry' in latest_data.index:
+                dry_default = float(latest_data['weeks_dry'])
+            else:
+                dry_default = 3.0
+            weather_overrides['weeks_dry'] = st.number_input("Dry Weeks", value=dry_default, step=0.5)
     
     use_custom_soil = st.checkbox("Override Soil Data", False)
     

@@ -113,10 +113,34 @@ if base:
             st.write("Reduced precipitation and increased heat stress")
             
             if st.button("Run Drought Scenario", key="drought"):
+                base_features = base['result']['features_used']
                 scenarios['Drought'] = {
-                    'precip_total': base['result']['features_used'].get('precip_total', 500) * 0.6,
-                    'weeks_heat_stress': base['result']['features_used'].get('weeks_heat_stress', 2) * 2.5,
-                    'precip_anomaly_mm': -100
+                    # Precipitation reductions (40% less rain)
+                    'precip_total': base_features.get('precip_total', 500) * 0.6,
+                    'precip_vegetative': base_features.get('precip_vegetative', 150) * 0.6,
+                    'precip_reproductive': base_features.get('precip_reproductive', 150) * 0.6,
+                    'precip_grainfill': base_features.get('precip_grainfill', 150) * 0.6,
+                    'precip_mean_weekly': base_features.get('precip_mean_weekly', 20) * 0.6,
+                    'precip_max_weekly': base_features.get('precip_max_weekly', 40) * 0.6,
+                    # Precipitation anomalies (negative = below normal)
+                    'precip_anomaly_mm': -150,  # 150mm below normal
+                    'precip_anomaly_pct': -40.0,  # 40% below normal
+                    # Dry conditions
+                    'weeks_dry': base_features.get('weeks_dry', 3) * 2.5,  # More dry weeks
+                    'weeks_very_dry': base_features.get('weeks_very_dry', 1) * 3.0,
+                    'weeks_wet': 0,  # No wet weeks during drought
+                    # Water stress
+                    'water_stress_reproductive': 3.0,  # High water stress
+                    # Heat stress (drought often comes with heat)
+                    'weeks_heat_stress': base_features.get('weeks_heat_stress', 2) * 2.5,
+                    'weeks_extreme_heat': base_features.get('weeks_extreme_heat', 0.5) * 3.0,
+                    'heat_moisture_stress': base_features.get('heat_moisture_stress', 1.0) * 2.5,  # Combined stress
+                    # Temperature increases (drought = hotter)
+                    'temp_mean_season': base_features.get('temp_mean_season', 20) + 2.0,
+                    'temp_max_season': base_features.get('temp_max_season', 28) + 2.5,
+                    'temp_mean_reproductive': base_features.get('temp_mean_reproductive', 22) + 2.0,
+                    'temp_anomaly': 2.0,  # 2°C above normal
+                    'gdd_anomaly': base_features.get('gdd_anomaly', 0) + 150,  # More GDD
                 }
         
         with col2:
@@ -124,10 +148,37 @@ if base:
             st.write("Ideal growing conditions")
             
             if st.button("Run Optimal Scenario", key="optimal"):
+                base_features = base['result']['features_used']
                 scenarios['Optimal'] = {
-                    'precip_total': base['result']['features_used'].get('precip_total', 500) * 1.2,
+                    # Optimal = conditions close to county normal (near-zero anomalies)
+                    # Keep precipitation near normal levels (small positive deviation is OK)
+                    'precip_total': base_features.get('precip_total', 500) * 1.05,  # 5% above normal
+                    'precip_vegetative': base_features.get('precip_vegetative', 150) * 1.05,
+                    'precip_reproductive': base_features.get('precip_reproductive', 150) * 1.08,  # Slightly extra during critical stage
+                    'precip_grainfill': base_features.get('precip_grainfill', 150) * 1.03,
+                    'precip_mean_weekly': base_features.get('precip_mean_weekly', 20) * 1.05,
+                    # Near-zero anomalies (conditions close to county normal = optimal)
+                    'precip_anomaly_mm': 25,  # Small positive (25mm above normal)
+                    'precip_anomaly_pct': 5.0,  # 5% above normal (not 15%!)
+                    # Minimal dry conditions (but not zero - some dry is normal)
+                    'weeks_dry': max(1.0, base_features.get('weeks_dry', 3) * 0.7),  # Fewer dry weeks
+                    'weeks_very_dry': 0,  # No very dry weeks
+                    'weeks_wet': max(0, base_features.get('weeks_wet', 2) - 0.5),  # Moderate, not excessive
+                    # Minimal water stress
+                    'water_stress_reproductive': 0.0,
+                    # No heat stress (critical for optimal conditions)
                     'weeks_heat_stress': 0,
-                    'precip_anomaly_mm': 50
+                    'weeks_extreme_heat': 0,
+                    'heat_moisture_stress': 0.0,
+                    # Optimal temperatures (close to normal)
+                    'temp_mean_season': base_features.get('temp_mean_season', 20),  # At normal
+                    'temp_mean_reproductive': base_features.get('temp_mean_reproductive', 22),  # At normal
+                    'temp_anomaly': 0.0,  # Near-zero anomaly (optimal)
+                    'gdd_anomaly': 0.0,  # Near-zero anomaly (optimal)
+                    # Normal temperature variability (not too high)
+                    'temp_std_season': base_features.get('temp_std_season', 3) * 0.9,  # Slightly lower variability
+                    # Normal humidity (not excessive)
+                    'weeks_high_humidity': max(0, base_features.get('weeks_high_humidity', 2) * 0.8),
                 }
         
         col3, col4 = st.columns(2)
@@ -137,59 +188,225 @@ if base:
             st.write("Very high temperatures and heat stress")
             
             if st.button("Run Heat Scenario", key="heat"):
+                base_features = base['result']['features_used']
                 scenarios['Extreme Heat'] = {
-                    'weeks_heat_stress': base['result']['features_used'].get('weeks_heat_stress', 2) * 3,
-                    'gdd_total': base['result']['features_used'].get('gdd_total', 2800) * 1.1,
-                    'temp_anomaly': 2.0
+                    # Extreme heat stress
+                    'weeks_heat_stress': base_features.get('weeks_heat_stress', 2) * 3.5,
+                    'weeks_extreme_heat': base_features.get('weeks_extreme_heat', 0.5) * 4.0,
+                    'heat_moisture_stress': base_features.get('heat_moisture_stress', 1.0) * 2.0,
+                    # High temperatures
+                    'temp_mean_season': base_features.get('temp_mean_season', 20) + 3.0,
+                    'temp_max_season': base_features.get('temp_max_season', 28) + 4.0,
+                    'temp_min_season': base_features.get('temp_min_season', 15) + 2.0,
+                    'temp_mean_reproductive': base_features.get('temp_mean_reproductive', 22) + 3.0,
+                    'temp_max_reproductive': base_features.get('temp_max_reproductive', 30) + 3.5,
+                    'temp_anomaly': 3.0,  # 3°C above normal
+                    'temp_std_season': base_features.get('temp_std_season', 3) * 1.2,  # More variability
+                    'temp_range_avg': base_features.get('temp_range_avg', 10) + 2.0,
+                    # Increased GDD
+                    'gdd_total': base_features.get('gdd_total', 2800) * 1.15,
+                    'gdd_vegetative': base_features.get('gdd_vegetative', 1000) * 1.15,
+                    'gdd_reproductive': base_features.get('gdd_reproductive', 800) * 1.15,
+                    'gdd_grainfill': base_features.get('gdd_grainfill', 600) * 1.15,
+                    'gdd_anomaly': base_features.get('gdd_anomaly', 0) + 200,
+                    # High humidity during heat (stressful combination)
+                    'weeks_high_humidity': base_features.get('weeks_high_humidity', 2) * 1.5,
                 }
         
         with col4:
             st.subheader("Excessive Rain")
-            st.write("Above-normal precipitation")
+            st.write("Above-normal precipitation (can reduce yield)")
             
             if st.button("Run Rain Scenario", key="rain"):
+                base_features = base['result']['features_used']
                 scenarios['Excessive Rain'] = {
-                    'precip_total': base['result']['features_used'].get('precip_total', 500) * 1.5,
-                    'precip_anomaly_mm': 150,
-                    'weeks_wet': 8
+                    # Very high precipitation
+                    'precip_total': base_features.get('precip_total', 500) * 1.5,
+                    'precip_vegetative': base_features.get('precip_vegetative', 150) * 1.5,
+                    'precip_reproductive': base_features.get('precip_reproductive', 150) * 1.6,
+                    'precip_grainfill': base_features.get('precip_grainfill', 150) * 1.4,
+                    'precip_mean_weekly': base_features.get('precip_mean_weekly', 20) * 1.5,
+                    'precip_max_weekly': base_features.get('precip_max_weekly', 40) * 1.8,  # Heavy downpours
+                    'precip_std': base_features.get('precip_std', 15) * 1.3,  # High variability
+                    # Large positive anomalies
+                    'precip_anomaly_mm': 200,
+                    'precip_anomaly_pct': 40.0,
+                    # Wet conditions
+                    'weeks_wet': 8.0,
+                    'weeks_dry': 0,  # No dry weeks
+                    'weeks_very_dry': 0,
+                    # Water logging stress (negative for yield)
+                    'water_stress_reproductive': 0.0,  # No water deficit, but potential for waterlogging
+                    # Cooler temperatures (often associated with excessive rain)
+                    'temp_mean_season': base_features.get('temp_mean_season', 20) - 1.0,
+                    'temp_max_season': base_features.get('temp_max_season', 28) - 1.5,
+                    'temp_mean_reproductive': base_features.get('temp_mean_reproductive', 22) - 1.0,
+                    'temp_anomaly': -1.0,  # 1°C below normal
+                    # Reduced heat stress
+                    'weeks_heat_stress': max(0, base_features.get('weeks_heat_stress', 2) * 0.5),
+                    'weeks_extreme_heat': 0,
+                    'heat_moisture_stress': max(0, base_features.get('heat_moisture_stress', 1.0) * 0.5),
+                    # High humidity
+                    'weeks_high_humidity': base_features.get('weeks_high_humidity', 2) * 2.0,
+                    'rh_mean': min(100, base_features.get('rh_mean', 70) + 5),
+                    'rh_reproductive': min(100, base_features.get('rh_reproductive', 75) + 5),
                 }
     
     else:  # Custom scenario
         st.subheader("Custom Weather Parameters")
+        st.caption("Adjust weather parameters to test specific conditions. Only modified parameters will override defaults.")
         
-        col1, col2 = st.columns(2)
+        base_features = base['result']['features_used']
         
-        with col1:
-            custom_precip = st.number_input(
+        # Organize parameters into tabs
+        tab1, tab2, tab3, tab4 = st.tabs(["Precipitation", "Temperature", "Stress Indicators", "Anomalies"])
+        
+        custom_overrides = {}
+        
+        with tab1:
+            st.write("**Precipitation Parameters**")
+            
+            custom_precip_total = st.number_input(
                 "Total Precipitation (mm)",
-                value=float(base['result']['features_used'].get('precip_total', 500)),
-                step=10.0
+                value=float(base_features.get('precip_total', 500)),
+                step=10.0,
+                help="Total growing season rainfall"
             )
+            if custom_precip_total != base_features.get('precip_total', 500):
+                custom_overrides['precip_total'] = custom_precip_total
+            
+            custom_precip_repro = st.number_input(
+                "Reproductive Stage Precipitation (mm)",
+                value=float(base_features.get('precip_reproductive', 150)),
+                step=5.0,
+                help="Rainfall during critical reproductive period (most important for yield)"
+            )
+            if custom_precip_repro != base_features.get('precip_reproductive', 150):
+                custom_overrides['precip_reproductive'] = custom_precip_repro
+            
+            custom_weeks_dry = st.number_input(
+                "Dry Weeks (precip < 10mm/week)",
+                value=float(base_features.get('weeks_dry', 3)),
+                step=0.5,
+                help="Number of weeks with low rainfall"
+            )
+            if custom_weeks_dry != base_features.get('weeks_dry', 3):
+                custom_overrides['weeks_dry'] = custom_weeks_dry
+            
+            custom_weeks_wet = st.number_input(
+                "Wet Weeks (precip > 40mm/week)",
+                value=float(base_features.get('weeks_wet', 2)),
+                step=0.5,
+                help="Number of weeks with heavy rainfall"
+            )
+            if custom_weeks_wet != base_features.get('weeks_wet', 2):
+                custom_overrides['weeks_wet'] = custom_weeks_wet
+        
+        with tab2:
+            st.write("**Temperature Parameters**")
+            
+            custom_gdd_total = st.number_input(
+                "Total Growing Degree Days (GDD)",
+                value=float(base_features.get('gdd_total', 2800)),
+                step=50.0,
+                help="Accumulated heat units for the season"
+            )
+            if custom_gdd_total != base_features.get('gdd_total', 2800):
+                custom_overrides['gdd_total'] = custom_gdd_total
+            
+            custom_temp_mean = st.number_input(
+                "Mean Season Temperature (°C)",
+                value=float(base_features.get('temp_mean_season', 20)),
+                step=0.5,
+                help="Average temperature during growing season"
+            )
+            if custom_temp_mean != base_features.get('temp_mean_season', 20):
+                custom_overrides['temp_mean_season'] = custom_temp_mean
+            
+            custom_temp_repro = st.number_input(
+                "Reproductive Stage Mean Temp (°C)",
+                value=float(base_features.get('temp_mean_reproductive', 22)),
+                step=0.5,
+                help="Average temperature during critical reproductive period"
+            )
+            if custom_temp_repro != base_features.get('temp_mean_reproductive', 22):
+                custom_overrides['temp_mean_reproductive'] = custom_temp_repro
+        
+        with tab3:
+            st.write("**Stress Indicators**")
+            
             custom_heat_stress = st.number_input(
-                "Heat Stress Weeks",
-                value=float(base['result']['features_used'].get('weeks_heat_stress', 2)),
-                step=0.5
+                "Heat Stress Weeks (Tmax > 32°C)",
+                value=float(base_features.get('weeks_heat_stress', 2)),
+                step=0.5,
+                help="Weeks with maximum temperature above 32°C"
             )
+            if custom_heat_stress != base_features.get('weeks_heat_stress', 2):
+                custom_overrides['weeks_heat_stress'] = custom_heat_stress
+            
+            custom_extreme_heat = st.number_input(
+                "Extreme Heat Weeks (Tmax > 35°C)",
+                value=float(base_features.get('weeks_extreme_heat', 0.5)),
+                step=0.5,
+                help="Weeks with maximum temperature above 35°C"
+            )
+            if custom_extreme_heat != base_features.get('weeks_extreme_heat', 0.5):
+                custom_overrides['weeks_extreme_heat'] = custom_extreme_heat
+            
+            custom_water_stress = st.number_input(
+                "Water Stress (Reproductive)",
+                value=float(base_features.get('water_stress_reproductive', 1.0)),
+                step=0.5,
+                help="Water stress indicator during reproductive stage"
+            )
+            if custom_water_stress != base_features.get('water_stress_reproductive', 1.0):
+                custom_overrides['water_stress_reproductive'] = custom_water_stress
         
-        with col2:
-            custom_gdd = st.number_input(
-                "Total GDD",
-                value=float(base['result']['features_used'].get('gdd_total', 2800)),
-                step=50.0
-            )
-            custom_precip_anomaly = st.number_input(
+        with tab4:
+            st.write("**Climate Anomalies**")
+            st.caption("Deviations from county normal (30-year average). Near-zero = conditions close to normal.")
+            
+            custom_precip_anomaly_mm = st.number_input(
                 "Precipitation Anomaly (mm)",
-                value=float(base['result']['features_used'].get('precip_anomaly_mm', 0)),
-                step=10.0
+                value=float(base_features.get('precip_anomaly_mm', 0)),
+                step=10.0,
+                help="Difference from county normal precipitation (mm)"
             )
+            if custom_precip_anomaly_mm != base_features.get('precip_anomaly_mm', 0):
+                custom_overrides['precip_anomaly_mm'] = custom_precip_anomaly_mm
+            
+            custom_precip_anomaly_pct = st.number_input(
+                "Precipitation Anomaly (%)",
+                value=float(base_features.get('precip_anomaly_pct', 0)),
+                step=1.0,
+                help="Percentage difference from county normal precipitation"
+            )
+            if custom_precip_anomaly_pct != base_features.get('precip_anomaly_pct', 0):
+                custom_overrides['precip_anomaly_pct'] = custom_precip_anomaly_pct
+            
+            custom_temp_anomaly = st.number_input(
+                "Temperature Anomaly (°C)",
+                value=float(base_features.get('temp_anomaly', 0)),
+                step=0.5,
+                help="Difference from county normal temperature"
+            )
+            if custom_temp_anomaly != base_features.get('temp_anomaly', 0):
+                custom_overrides['temp_anomaly'] = custom_temp_anomaly
+            
+            custom_gdd_anomaly = st.number_input(
+                "GDD Anomaly",
+                value=float(base_features.get('gdd_anomaly', 0)),
+                step=25.0,
+                help="Difference from county normal GDD"
+            )
+            if custom_gdd_anomaly != base_features.get('gdd_anomaly', 0):
+                custom_overrides['gdd_anomaly'] = custom_gdd_anomaly
         
-        if st.button("Run Custom Scenario"):
-            scenarios['Custom'] = {
-                'precip_total': custom_precip,
-                'weeks_heat_stress': custom_heat_stress,
-                'gdd_total': custom_gdd,
-                'precip_anomaly_mm': custom_precip_anomaly
-            }
+        if st.button("Run Custom Scenario", type="primary"):
+            if custom_overrides:
+                scenarios['Custom'] = custom_overrides
+            else:
+                st.info("No parameters changed. Modify at least one parameter to run a custom scenario.")
     
     # Run scenarios and display results
     if scenarios:
