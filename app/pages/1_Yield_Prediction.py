@@ -309,13 +309,26 @@ else:
         try:
             historical = get_historical_yields(df, selected_state, selected_county, current_year=selected_year)
             
-            if len(historical) > 0:
+            # Get intermediate predictions if available (for iterative predictions)
+            intermediate_predictions = result.get('intermediate_predictions', None)
+            
+            if len(historical) > 0 or intermediate_predictions:
                 fig = plot_historical_vs_predicted(
-                    historical,
+                    historical if len(historical) > 0 else pd.DataFrame(columns=['Year', 'Yield_BU_ACRE']),
                     result['predicted_yield'],
-                    st.session_state.get('prediction_year', selected_year)
+                    st.session_state.get('prediction_year', selected_year),
+                    intermediate_predictions=intermediate_predictions
                 )
                 st.plotly_chart(fig, use_container_width=True)
+                
+                # Show intermediate predictions info if available
+                if intermediate_predictions:
+                    with st.expander("View Intermediate Predictions", expanded=False):
+                        intermediate_df = pd.DataFrame([
+                            {'Year': year, 'Predicted Yield (BU/ACRE)': yield_val}
+                            for year, yield_val in sorted(intermediate_predictions.items())
+                        ])
+                        st.dataframe(intermediate_df, use_container_width=True, hide_index=True)
         except Exception as e:
             st.warning(f"Could not generate historical plot: {str(e)}")
         

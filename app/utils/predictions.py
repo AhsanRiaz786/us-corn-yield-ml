@@ -199,7 +199,8 @@ def predict_yield(
     df=None
 ):
     """
-    Make a yield prediction.
+    Make a yield prediction. For years beyond available data, uses iterative
+    prediction where each year's prediction is based on previous predictions.
     
     Args:
         state: State name
@@ -213,40 +214,177 @@ def predict_yield(
     Returns:
         dict: Prediction results with yield, confidence, and metadata
     """
-    # Load model and scaler
+    if df is None:
+        df = load_data()
+    
+    # Get maximum year in dataset
+    max_year = int(df['Year'].max())
+    
+    # Load model and scaler (only load once, reuse for iterations)
     model = load_model(model_name)
     scaler = load_scaler()
     model_metadata = get_model_metadata(model_name)
+    feature_columns = load_feature_columns()  # Load once, reuse
     
-    # Prepare features
-    features = prepare_features(
-        state, county, year,
-        weather_overrides=weather_overrides,
-        soil_overrides=soil_overrides,
-        df=df
-    )
-    
-    # Scale features ONLY if model requires it (Ridge)
-    # XGBoost, Random Forest, and Gradient Boosting were trained on unscaled data
-    if model_name == 'ridge':
-        features_scaled = scaler.transform(features)
-        features_final = pd.DataFrame(features_scaled, columns=features.columns)
+    # If predicting beyond available data, use iterative prediction
+    if year > max_year:
+        # Store predictions for intermediate years
+        intermediate_predictions = {}
+        
+        # Get base historical data (actual data up to max_year)
+        base_historical = get_historical_yields(df, state, county, current_year=max_year + 1)
+        
+        # Iteratively predict from (max_year + 1) to target year
+        for target_year in range(max_year + 1, year + 1):
+            # Build combined history: actual data + previous predictions
+            if len(intermediate_predictions) > 0:
+                # Create DataFrame with predicted yields
+                predicted_df = pd.DataFrame([
+                    {'Year': pred_year, 'Yield_BU_ACRE': yield_val}
+                    for pred_year, yield_val in sorted(intermediate_predictions.items())
+                ])
+                
+                # Combine with actual historical data
+                if len(base_historical) > 0:
+                    combined_history = pd.concat([base_historical, predicted_df], ignore_index=True)
+                    combined_history = combined_history.sort_values('Year').reset_index(drop=True)
+                else:
+                    combined_history = predicted_df.sort_values('Year').reset_index(drop=True)
+            else:
+                # First iteration: use only actual historical data
+                combined_history = base_historical.copy()
+            
+            # Prepare features for this target year
+            # Only apply weather/soil overrides for the final target year
+            use_overrides = (target_year == year)
+            
+            # Get all features using prepare_features with combined history
+            # prepare_features will use combined_history for lag features
+            features_df = prepare_features(
+                state, county, target_year,
+                historical_data=combined_history,  # Pass combined history (actual + predictions)
+                weather_overrides=weather_overrides if use_overrides else None,
+                soil_overrides=soil_overrides if use_overrides else None,
+                df=df
+            )
+            
+            # Ensure all required columns exist and in correct order
+            for col in feature_columns:
+                if col not in features_df.columns:
+                    features_df[col] = 0.0
+            features_df = features_df[feature_columns]
+            
+            # Scale features if needed
+            if model_name == 'ridge':
+                features_scaled = scaler.transform(features_df)
+                features_final = pd.DataFrame(features_scaled, columns=feature_columns)
+            else:
+                features_final = features_df
+            
+            # Make prediction for this year
+            prediction = model.predict(features_final)[0]
+            
+            # Stabilize prediction: prevent downward spiral by blending with historical baseline
+            # Use actual historical average (not combined with predictions) as baseline
+            if len(base_historical) >= 3:
+                historical_avg = float(base_historical['Yield_BU_ACRE'].tail(3).mean())
+                last_historical = float(base_historical['Yield_BU_ACRE'].iloc[-1])
+                
+                # Calculate trend: average year-over-year change over last 3-5 years
+                historical_sorted = base_historical.sort_values('Year')
+                if len(historical_sorted) >= 2:
+                    year_over_year_changes = historical_sorted['Yield_BU_ACRE'].diff().dropna()
+                    historical_trend = float(year_over_year_changes.tail(min(5, len(year_over_year_changes))).mean()) if len(year_over_year_changes) > 0 else 1.5
+                else:
+                    historical_trend = 1.5
+                
+                prediction_val = float(prediction)
+                years_ahead = target_year - max_year
+                
+                # Ensure trend is at least 1.5 BU/year (conservative technology improvement assumption)
+                trend_adjustment = max(1.5, historical_trend) if historical_trend > 0 else 1.5
+                
+                # Calculate expected yield: don't let it drop below historical average minus small buffer
+                # Allow for up to 10% drop from historical average for bad years, but maintain trend
+                min_acceptable = historical_avg * 0.90  # Don't go below 90% of recent average
+                expected_yield = max(
+                    min_acceptable,
+                    historical_avg + (years_ahead * trend_adjustment)
+                )
+                
+                # Strong stabilization: if prediction drops too much, blend heavily with expected
+                if prediction_val < expected_yield:
+                    # More aggressive blending: 50% prediction, 50% expected
+                    prediction = prediction_val * 0.5 + expected_yield * 0.5
+                # If prediction is way too high (>140% of expected), also stabilize
+                elif prediction_val > expected_yield * 1.4:
+                    prediction = prediction_val * 0.8 + expected_yield * 0.2
+            elif len(base_historical) > 0:
+                # Fallback: use last historical value with upward adjustment
+                last_historical = float(base_historical['Yield_BU_ACRE'].iloc[-1])
+                prediction_val = float(prediction)
+                years_ahead = target_year - max_year
+                expected = last_historical + (years_ahead * 1.5)  # 1.5 BU/year improvement
+                min_acceptable = last_historical * 0.90
+                expected = max(min_acceptable, expected)
+                if prediction_val < expected:
+                    prediction = prediction_val * 0.6 + expected * 0.4
+            
+            intermediate_predictions[target_year] = float(prediction)
+            
+            # Store features for final return (only for the target year)
+            if target_year == year:
+                final_features = features_df.to_dict('records')[0]
+        
+        # Final prediction is for the target year
+        prediction = intermediate_predictions[year]
+        
     else:
-        features_final = features
-    
-    # Make prediction
-    prediction = model.predict(features_final)[0]
+        # For years within dataset range, use standard prediction
+        features = prepare_features(
+            state, county, year,
+            weather_overrides=weather_overrides,
+            soil_overrides=soil_overrides,
+            df=df
+        )
+        
+        # Scale features if needed
+        if model_name == 'ridge':
+            features_scaled = scaler.transform(features)
+            features_final = pd.DataFrame(features_scaled, columns=features.columns)
+        else:
+            features_final = features
+        
+        # Make prediction
+        prediction = model.predict(features_final)[0]
+        final_features = features.to_dict('records')[0]
     
     # Get confidence interval (using MAE as proxy)
-    mae = model_metadata.get('mae', 11.22)
+    # Increase uncertainty for predictions further in future
+    years_ahead = max(0, year - max_year)
+    base_mae = model_metadata.get('mae', 11.22)
+    if years_ahead > 0:
+        # Increase uncertainty by 5% per year into future
+        # (accounts for accumulated error in iterative predictions)
+        uncertainty_factor = 1 + (years_ahead * 0.05)
+        mae = base_mae * uncertainty_factor
+    else:
+        mae = base_mae
+    
     confidence_interval = (prediction - mae, prediction + mae)
     
-    return {
+    result = {
         'predicted_yield': float(prediction),
         'confidence_lower': float(confidence_interval[0]),
         'confidence_upper': float(confidence_interval[1]),
         'mae': mae,
         'model_name': model_name,
-        'features_used': features.to_dict('records')[0]
+        'features_used': final_features
     }
+    
+    # Add intermediate predictions if we did iterative prediction
+    if year > max_year and 'intermediate_predictions' in locals():
+        result['intermediate_predictions'] = intermediate_predictions
+    
+    return result
 

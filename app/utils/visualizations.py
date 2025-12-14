@@ -178,28 +178,44 @@ def plot_scatter_with_trend(x, y, xlabel, ylabel, title):
     return fig
 
 
-def plot_historical_vs_predicted(historical_data, predicted_yield, predicted_year):
+def plot_historical_vs_predicted(historical_data, predicted_yield, predicted_year, intermediate_predictions=None):
     """
-    Plot historical yields with prediction.
+    Plot historical yields with prediction and previous predictions if available.
     
     Args:
         historical_data: DataFrame with Year and Yield_BU_ACRE columns
         predicted_yield: Predicted yield value
         predicted_year: Year for prediction
+        intermediate_predictions: Dict of {year: yield} for intermediate predictions (optional)
     """
     fig = go.Figure()
     
     # Historical data
-    fig.add_trace(go.Scatter(
-        x=historical_data['Year'],
-        y=historical_data['Yield_BU_ACRE'],
-        mode='lines+markers',
-        name='Historical',
-        line=dict(color=COLORS['primary'], width=2),
-        marker=dict(size=6)
-    ))
+    if len(historical_data) > 0:
+        fig.add_trace(go.Scatter(
+            x=historical_data['Year'],
+            y=historical_data['Yield_BU_ACRE'],
+            mode='lines+markers',
+            name='Historical',
+            line=dict(color=COLORS['primary'], width=2),
+            marker=dict(size=6)
+        ))
     
-    # Prediction
+    # Intermediate predictions (previous years if iterative)
+    if intermediate_predictions:
+        intermediate_years = sorted([y for y in intermediate_predictions.keys() if y < predicted_year])
+        if intermediate_years:
+            intermediate_values = [intermediate_predictions[y] for y in intermediate_years]
+            fig.add_trace(go.Scatter(
+                x=intermediate_years,
+                y=intermediate_values,
+                mode='lines+markers',
+                name='Previous Predictions',
+                line=dict(color=COLORS['warning'], width=2, dash='dash'),
+                marker=dict(size=8, color=COLORS['warning'])
+            ))
+    
+    # Final prediction
     fig.add_trace(go.Scatter(
         x=[predicted_year],
         y=[predicted_yield],
@@ -208,12 +224,27 @@ def plot_historical_vs_predicted(historical_data, predicted_yield, predicted_yea
         marker=dict(size=15, color=COLORS['success'], symbol='star')
     ))
     
+    # Connect intermediate predictions to final if they exist
+    if intermediate_predictions and predicted_year in intermediate_predictions:
+        intermediate_years = sorted([y for y in intermediate_predictions.keys() if y <= predicted_year])
+        if len(intermediate_years) > 1:
+            intermediate_values = [intermediate_predictions[y] for y in intermediate_years]
+            fig.add_trace(go.Scatter(
+                x=intermediate_years,
+                y=intermediate_values,
+                mode='lines',
+                name='Prediction Path',
+                line=dict(color=COLORS['success'], width=2, dash='dot'),
+                showlegend=False
+            ))
+    
     fig.update_layout(
         title='Historical Yields and Prediction',
         xaxis_title='Year',
         yaxis_title='Yield (BU/ACRE)',
         plot_bgcolor='white',
-        hovermode='x unified'
+        hovermode='x unified',
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
     )
     
     return fig
